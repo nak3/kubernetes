@@ -4569,6 +4569,10 @@ func ValidateLimitRange(limitRange *core.LimitRange) field.ErrorList {
 			defaultRequestQuantity, defaultRequestQuantityFound := defaultRequests[k]
 			maxRatio, maxRatioFound := maxLimitRequestRatios[k]
 
+			if maxQuantityFound && (!minQuantityFound || minQuantity.Value() <= 0) {
+				allErrs = append(allErrs, field.Invalid(idxPath.Child("min").Key(string(k)), minQuantity, fmt.Sprintf("min value is not set or no more than 0 with max value %s", maxQuantity.String())))
+			}
+
 			if minQuantityFound && maxQuantityFound && minQuantity.Cmp(maxQuantity) > 0 {
 				allErrs = append(allErrs, field.Invalid(idxPath.Child("min").Key(string(k)), minQuantity, fmt.Sprintf("min value %s is greater than max value %s", minQuantity.String(), maxQuantity.String())))
 			}
