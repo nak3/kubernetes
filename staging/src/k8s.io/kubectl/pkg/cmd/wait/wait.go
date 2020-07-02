@@ -77,8 +77,9 @@ type WaitFlags struct {
 	PrintFlags           *genericclioptions.PrintFlags
 	ResourceBuilderFlags *genericclioptions.ResourceBuilderFlags
 
-	Timeout      time.Duration
-	ForCondition string
+	Timeout        time.Duration
+	ForCondition   string
+	IgnoreNotFound bool
 
 	genericclioptions.IOStreams
 }
@@ -134,6 +135,7 @@ func (flags *WaitFlags) AddFlags(cmd *cobra.Command) {
 
 	cmd.Flags().DurationVar(&flags.Timeout, "timeout", flags.Timeout, "The length of time to wait before giving up.  Zero means check once and don't wait, negative means wait for a week.")
 	cmd.Flags().StringVar(&flags.ForCondition, "for", flags.ForCondition, "The condition to wait on: [delete|condition=condition-name].")
+	cmd.Flags().BoolVar(&flags.IgnoreNotFound, "ignore-not-found", flags.IgnoreNotFound, "If the requested object does not exist the command will return exit code 0.")
 }
 
 // ToOptions converts from CLI inputs to runtime inputs
@@ -165,6 +167,7 @@ func (flags *WaitFlags) ToOptions(args []string) (*WaitOptions, error) {
 		ResourceFinder: builder,
 		DynamicClient:  dynamicClient,
 		Timeout:        effectiveTimeout,
+		IgnoreNotFound: flags.IgnoreNotFound,
 
 		Printer:     printer,
 		ConditionFn: conditionFn,
@@ -212,9 +215,10 @@ type WaitOptions struct {
 	ResourceFinder genericclioptions.ResourceFinder
 	// UIDMap maps a resource location to a UID.  It is optional, but ConditionFuncs may choose to use it to make the result
 	// more reliable.  For instance, delete can look for UID consistency during delegated calls.
-	UIDMap        UIDMap
-	DynamicClient dynamic.Interface
-	Timeout       time.Duration
+	UIDMap         UIDMap
+	DynamicClient  dynamic.Interface
+	Timeout        time.Duration
+	IgnoreNotFound bool
 
 	Printer     printers.ResourcePrinter
 	ConditionFn ConditionFunc
@@ -243,6 +247,10 @@ func (o *WaitOptions) RunWait() error {
 		}
 		return err
 	})
+
+	if o.IgnoreNotFound && apierrors.IsNotFound(err) {
+		return nil
+	}
 	if err != nil {
 		return err
 	}
